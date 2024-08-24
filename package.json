@@ -1,0 +1,16 @@
+{
+  "name": "world-chat-api",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.12.1",
+    "hono": "^4.5.8",
+    "socket.io": "^4.7.5"
+  }
+}
