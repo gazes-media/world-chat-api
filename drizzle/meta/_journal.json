@@ -8,6 +8,27 @@
       "when": 1724512354126,
       "tag": "0000_wandering_the_captain",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1724605409798,
+      "tag": "0001_clumsy_the_phantom",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1724610853623,
+      "tag": "0002_optimal_vindicator",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1724611684457,
+      "tag": "0003_vengeful_boom_boom",
+      "breakpoints": true
     }
   ]
 }

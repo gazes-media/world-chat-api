@@ -3,21 +3,42 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { Server } from 'socket.io';
 import { Server as HttpServer } from 'http';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import postgres from 'postgres';
-const migrationClient = postgres(process.env.DATABASE_URL as string, { max: 1 });
+import { db, memcached, type dataInformation } from './database';
+import { basicAuth } from 'hono/basic-auth';
+import { verifyUser } from './utils';
+import type { UserSelect } from './database/schema';
 
-// for query purposes
-const queryClient = postgres(process.env.DATABASE_URL as string);
-const db = drizzle(queryClient);
+const app = new Hono<{
+  Variables: {
+    user: UserSelect;
+  };
+}>();
 
-
-const app = new Hono();
+export type App = typeof app;
 
 app.get('/', (c) => {
   return c.text('Hello Hono!');
 });
+
+app.use("/user/*", basicAuth({
+  verifyUser: async(username, password, c) => {
+     const userExist = await verifyUser(username, password, db);
+     if(userExist){
+        c.set("user", userExist);
+       return true;
+     }else return false;
+  }
+}));
+
+app.use("/app/*", basicAuth({
+  verifyUser: async(username, password, c) => {
+     const userExist = await verifyUser(username, password, db);
+     if(userExist){
+        c.set("user", userExist);
+       return true;
+     }else return false;
+  }
+}));
 
 const server = serve(
   {
@@ -38,11 +59,20 @@ io.on("error", (err) => {
   console.log(err)
 })
 
+
 io.on("connection", (socket) => {
-  socket.on("connect", (data) => {
-    io.emit("message", data)
+  socket.on("login", (data: dataInformation) => {
+    memcached.set(socket.id, data);
+  })
+
+  socket.on("disconnect", () => {
+    memcached.delete(socket.id);
+  })
+  socket.on("error", () => {
+    memcached.delete(socket.id);
   })
 })
+
 
 setInterval(() => {
     io.emit("hello", "world")
