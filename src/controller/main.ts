@@ -132,7 +132,7 @@ export function main(app: App) {
         })
     })
 
-    app.get("/redirect", (c) =>{
+    app.get("/test", (c) =>{
        const authUser = c.get("authUser");
        return c.json(authUser);
     });

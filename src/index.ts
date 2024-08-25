@@ -14,6 +14,7 @@ import Google from '@auth/core/providers/google';
 import Credentials from '@auth/core/providers/credentials';
 import { CredentialsSignin } from '@auth/core/errors';
 import dotenv from "dotenv";
+import { main } from './controller/main';
 dotenv.config();
 const app = new Hono<{
   Variables: {
@@ -24,11 +25,9 @@ const app = new Hono<{
 export type App = typeof app;
 
 function getAuthConfig(c: Context): AuthConfig {
-  const url = new URL(c.req.url);
   return {
     basePath: "/auth",
     secret: process.env.AUTH_SECRET,
-    redirectProxyUrl: url.protocol + "//" + url.host + "/redirect",
     providers: [
       Discord({
         clientId: process.env.DISCORD_ID,
@@ -65,11 +64,10 @@ function getAuthConfig(c: Context): AuthConfig {
 app.use("*", initAuthConfig(getAuthConfig))
 
 app.use("/auth/*", authHandler())
-
+app.use("/test",verifyAuth())
 app.use('/api/*', verifyAuth())
-
 app.get('/', (c) => {
-  return c.text('Hello Hono!');
+  return c.text("Hello hono");
 });
 
 app.use("/user/*", basicAuth({
@@ -92,6 +90,7 @@ app.use("/app/*", basicAuth({
   }
 }));
 
+main(app);
 const server = serve(
   {
     fetch: app.fetch,
