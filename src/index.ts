@@ -1,13 +1,20 @@
 // server
 import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { Server } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { db, memcached, type dataInformation } from './database';
 import { basicAuth } from 'hono/basic-auth';
 import { verifyUser } from './utils';
-import type { UserSelect } from './database/schema';
-
+import { accounts, sessions, users, verificationTokens, type UserSelect } from './database/schema';
+import { authHandler, initAuthConfig, verifyAuth, type AuthConfig } from "@hono/auth-js"
+import { DrizzleAdapter } from "@auth/drizzle-adapter"
+import Discord from '@auth/core/providers/discord';
+import Google from '@auth/core/providers/google';
+import Credentials from '@auth/core/providers/credentials';
+import { CredentialsSignin } from '@auth/core/errors';
+import dotenv from "dotenv";
+dotenv.config();
 const app = new Hono<{
   Variables: {
     user: UserSelect;
@@ -15,6 +22,51 @@ const app = new Hono<{
 }>();
 
 export type App = typeof app;
+
+function getAuthConfig(c: Context): AuthConfig {
+  const url = new URL(c.req.url);
+  return {
+    basePath: "/auth",
+    secret: process.env.AUTH_SECRET,
+    redirectProxyUrl: url.protocol + "//" + url.host + "/redirect",
+    providers: [
+      Discord({
+        clientId: process.env.DISCORD_ID,
+        clientSecret: process.env.DISCORD_SECRET,
+      }),
+      Google({
+        clientId: process.env.GOOGLE_ID,
+        clientSecret: process.env.GOOGLE_SECRET,
+      }),
+      Credentials({
+        credentials: {
+          username: {
+          },
+          password: {
+          }
+        },
+        authorize: async (credents, req) => {
+          const userExist = await verifyUser(credents.username as string, credents.password as string, db);
+          if(userExist){
+            return userExist;
+          }else return new CredentialsSignin("Invalid credentials")
+        },
+      }),
+    ],
+    adapter: DrizzleAdapter(db,{
+      usersTable: users,
+      sessionsTable: sessions,
+      accountsTable: accounts,
+      verificationTokensTable: verificationTokens
+    }),
+  }
+}
+
+app.use("*", initAuthConfig(getAuthConfig))
+
+app.use("/auth/*", authHandler())
+
+app.use('/api/*', verifyAuth())
 
 app.get('/', (c) => {
   return c.text('Hello Hono!');

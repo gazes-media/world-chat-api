@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { memcached, type dataInformation, db } from "./database";
-import { User } from "./database/schema";
+import { users } from "./database/schema";
 
 /**
  *
@@ -30,8 +30,8 @@ export function getRelativeUser(tags: string[], ids: number[] = []): dataInforma
 export async function retrieveAlreadyExistingTags(database: typeof db): Promise<string[]> {
 
     const tags = await database.select({
-        tags: User.tags
-    }).from(User).execute();
+        tags: users.tags
+    }).from(users).execute();
 
     const TagSet = new Set(tags.map((tag) => tag.tags).flat());
     return Array.from(TagSet.values());
@@ -39,13 +39,16 @@ export async function retrieveAlreadyExistingTags(database: typeof db): Promise<
 }
 
 export async function verifyUser(username: string, password: string, database: typeof db) {
-    const searchUsers = await database.select().from(User).where(eq(User.name, username)).limit(1).execute();
+    const searchUsers = await database.select().from(users).where(eq(users.name, username)).limit(1).execute();
 
     if (searchUsers.length > 0) {
-        const verify = await Bun.password.verify(password, searchUsers[0].password);
+        if(searchUsers[0].password){
+            const verify = await Bun.password.verify(password, searchUsers[0].password);
         if (verify) {
             return searchUsers[0];
         }
+        }else return false
+
     }
     return false;
 }

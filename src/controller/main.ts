@@ -1,12 +1,13 @@
 import type { App } from '../index';
 import { zValidator } from '@hono/zod-validator'
 import * as schemaValidator from '../validator';
-import { User } from '../database/schema';
+import { users } from '../database/schema';
 import { db } from '../database';
 import { eq } from 'drizzle-orm';
 import { getRelativeUser, retrieveAlreadyExistingTags } from '../utils';
 
 export function main(app: App) {
+
     app.post("/login", zValidator("json",schemaValidator.UserLoginSchema, (result, c) => {
         if (!result.success) {
           return c.json({
@@ -17,12 +18,14 @@ export function main(app: App) {
       }),
     async (c) => {
         const { username, password } = c.req.valid("json");
-        const searchUsers = await db.select().from(User).where(eq(User.name,username)).limit(1).execute();
+        const searchUsers = await db.select().from(users).where(eq(users.name,username)).limit(1).execute();
 
         if(searchUsers.length > 0){
-            const verify = await Bun.password.verify(password, searchUsers[0].password)
+            // we need to check if a password exist
+            if(searchUsers[0].password){
+                const verify = await Bun.password.verify(password, searchUsers[0].password)
             if(verify){
-                const { googleId, discordId, status, deletedAt, createdAt, password, ...user } = searchUsers[0];
+                const { status, deletedAt, createdAt, password, ...user } = searchUsers[0];
                 return c.json({
                     status: true,
                     data: {user}
@@ -33,11 +36,15 @@ export function main(app: App) {
                     error: "Invalid password"
                 })
             }
+            }else return c.json({
+                status: false,
+                error: "You need to login with your initial provider"
+            })
         }else{
             c.status(404)
             return c.json({
                 status: false,
-                error: "User not found"
+                error: "users not found"
             });
         }
 
@@ -54,7 +61,7 @@ export function main(app: App) {
     async (c) => {
         const { username, password, lang } = c.req.valid("json");
         const hashedPassword = await Bun.password.hash(password);
-        const user = await db.insert(User).values({
+        const user = await db.insert(users).values({
             name: username,
             password: hashedPassword,
             tags: ["user"],
@@ -69,9 +76,9 @@ export function main(app: App) {
 
     app.get("/user/:id", async (c) => {
         const { id } = c.req.param()
-        const userSearched = await db.select().from(User).where(eq(User.id,parseInt(id))).limit(1).execute();
+        const userSearched = await db.select().from(users).where(eq(users.id,id)).limit(1).execute();
         if(userSearched.length > 0){
-            const { googleId, discordId, status, deletedAt, createdAt, password, ...user } = userSearched[0];
+            const { status, deletedAt, createdAt, password, ...user } = userSearched[0];
             return c.json({
                 status: true,
                 data: {user}
@@ -80,7 +87,7 @@ export function main(app: App) {
             c.status(404)
             return c.json({
                 status: false,
-                error: "User not found"
+                error: "users not found"
             });
         }
     })
@@ -97,10 +104,10 @@ export function main(app: App) {
     async (c) => {
         const userContext = c.get("user");
         const { lang, tags } = c.req.valid("json");
-        const user = await db.update(User).set({
+        const user = await db.update(users).set({
             lang,
             tags
-        }).where(eq(User.id,userContext.id)).execute();
+        }).where(eq(users.id,userContext.id)).execute();
         return c.json({
             status: true,
             data: {user}
@@ -125,4 +132,8 @@ export function main(app: App) {
         })
     })
 
+    app.get("/redirect", (c) =>{
+       const authUser = c.get("authUser");
+       return c.json(authUser);
+    });
 }
